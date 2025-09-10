@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Indonesia District Map</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+    #map { height: 100vh; }
+
+    /* Floating control panel */
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .control-panel select,
+    .control-panel input {
+      padding: 6px 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    /* Search results sdropdown */
+    #searchResults {
+      position: absolute;
+      top: 60px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      width: 250px;
+      max-height: 200px;
+      overflow-y: auto;
+      list-style: none;
+      margin: 0;
+      padding: 4px 0;
+      display: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    #searchResults li {
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    #searchResults li:hover {
+      background: #f5f5f5;
+    }
+
+    /* Legend */
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      font-size: 12px;
+      line-height: 1.5;
+      z-index: 1000;
+    }
+    .legend div {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .legend span {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      margin-right: 6px;
+      border-radius: 3px;
+    }
+    .stats {
+      position: absolute;
+      bottom: 20px;
+      right: 180px; /* 👈 so it sits next to legend */
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      font-size: 12px;
+      line-height: 1.5;
+      z-index: 1000;
+    }
+  </style> 
+</head>
+<body>
+                      
+  <div id="map"></div>
+
+  <div class="control-panel">
+    <select id="provinceFilter">
+      <option value="all">-- Tampilkan Semua Provinsi --</option>
+    </select>
+    <select id="yearFilter">
+      <option value="2020">2020</option>
+      <option value="2021">2021</option>
+      <option value="2022">2022</option>
+      <option value="2023">2023</option>
+      <option value="2024">2024</option>
+    </select>
+    <input type="text" id="districtSearch" placeholder="Cari Kabupaten/Kota..." />
+  </div>
+
+  <ul id="searchResults"></ul> 
+
+  <div class="legend">
+    <strong>Legenda</strong><br>
+    <div><span style="background:#1D9054"></span> > 90 Sangat Memuaskan (AA)</div>
+    <div><span style="background:#36D8B0"></span> 80.1–90 Memuaskan (A)</div>
+    <div><span style="background:#26E683"></span> 70.1–80 Sangat Baik (BB)</div>
+    <div><span style="background:#B7FAD7"></span> 60.1–70 Baik (B)</div>
+    <div><span style="background:#F5FF8B"></span> 50.1–60 Cukup (CC)</div>
+    <div><span style="background:#FFB089"></span> 30.1–50 Kurang (C)</div>
+    <div><span style="background:#FF4E33"></span> < 30 Sangat Kurang (D)</div>
+    <div><span style="background:#899499"></span> Tidak Dilaksanakan Pengawasan</div>
+    <div><span style="background:#E5E4E2"></span> Tidak Diberikan Opini</div>
+  </div>
+
+  <div class="stats">
+    <strong>Statistik NHP</strong>
+    <div id="statsContent">Memuat...</div> 
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+  const map = L.map('map').setView([-2.5, 117], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  
+  const districtColors = {};
+  const allLayers = []; // Store layers for filtering
+  
+  let selectedYear = "2020"; //default filter
+  let nhpDataByYear = {}; //for read all year
+  let geoData; // Cache data for reuse
+
+  function getNhpColor(nhp) {
+  if (nhp > 90) return "#1D9054";
+    else if (nhp >= 80.1) return "#36D8B0";
+    else if (nhp >= 70.1) return "#26E683";
+    else if (nhp >= 60.1) return "#B7FAD7";
+    else if (nhp >= 50.1) return "#F5FF8B";
+    else if (nhp >= 30.1) return "#FFB089";
+  else return "#FF4E33";
+}
+
+  function getDistrictName(f) {
+    return f.properties.regency || "Unknown";
+  }
+
+  function getProvinceName(f) {
+    return f.properties.province || "Unknown";
+  }
+
+  function renderMap(selectedProvince) {
+    // Clear old layers
+    allLayers.forEach(l => map.removeLayer(l));
+    allLayers.length = 0;
+
+    L.geoJSON(geoData, {
+      filter: function(feature) {
+        return selectedProvince === 'all' || getProvinceName(feature) === selectedProvince;
+      },
+      style: function(feature) {
+        const district = getDistrictName(feature);
+        const lookupKey = district.trim().toLowerCase();
+        const data = nhpDataByYear[selectedYear][lookupKey];
+        const nhp = data?.NHP || null;
+        
+        let fillColor = "#cccccc"; // default if no data
+
+          if (data?.KATEGORI === "TIDAK DILAKSANAKAN PENGAWASAN") {
+            fillColor = "#899499";
+        } else if (data?.KATEGORI === "TIDAK DIBERIKAN OPINI") {
+            fillColor = "#E5E4E2";
+        } else if (data?.NHP !== undefined && !isNaN(data.NHP)) {
+            fillColor = getNhpColor(Number(data.NHP));
+      }
+        return {
+          color: '#333',
+          weight: 0.1,
+          fillColor: fillColor,
+          fillOpacity: 0.6
+        };
+      },
+      onEachFeature: function(feature, layer) {
+        console.log("Feature properties:", feature.properties); // 🪵 log to console
+        
+        const district = getDistrictName(feature);
+        const province = getProvinceName(feature);
+        
+        const lookupKey = district.trim().toLowerCase();
+        const data = nhpDataByYear[selectedYear][lookupKey];
+
+        let nhp = "-";
+          if (data?.NHP !== undefined && !isNaN(data.NHP)) {
+          const nhpNum = Number(data.NHP);
+        nhp = nhpNum === 0 ? (data.KATEGORI || "-") : nhpNum.toFixed(2);
+
+}
+/////////////////////////////////
+        let popupContent = `<strong>${district}</strong><br>${province}`;
+          if (data) {
+          popupContent += `<hr><strong>NHP:</strong> ${data.NHP || "-"}`;
+            } else {
+            popupContent += `<br><em>Data not available</em>`;
+          }
+/////////////////////////////////
+        layer.bindPopup(`<strong>${district}</strong><br>${province}<br><strong>NHP:</strong> ${nhp}`);
+        allLayers.push(layer);
+      }
+    }).addTo(map);
+  }
+
+function updateStats(year) {
+  const counts = {
+    "> 90 Sangat Memuaskan (AA)": 0,
+    "80.1-90 Memuaskan (A)": 0,
+    "70.1-80 Sangat Baik (BB)": 0,
+    "60.1-70 Baik (B)": 0,
+    "50.1-60 Cukup (CC)": 0,
+    "30.1-50 Kurang (C)": 0,
+    "< 30 Sangat Kurang (D)": 0,
+    "Tidak Dilaksanakan Pengawasan": 0,
+    "Tidak Diberikan Opini": 0
+  };
+
+  const visited = new Set();
+
+    geoData.features.forEach(f => {
+    const regencyCode = f.properties.regency_code;
+    if (!regencyCode || visited.has(regencyCode)) return;
+
+    visited.add(regencyCode);
+
+    const regencyName = f.properties.regency?.trim().toLowerCase();
+    const data = nhpDataByYear[year][regencyName];
+    if (!data) return;
+
+    if (data.KATEGORI === "TIDAK DILAKSANAKAN PENGAWASAN") {
+      counts["Tidak Dilaksanakan Pengawasan"]++;
+    } else if (data.KATEGORI === "TIDAK DIBERIKAN OPINI") {
+      counts["Tidak Diberikan Opini"]++;
+    } else if (data?.NHP !== undefined && !isNaN(data.NHP)) {
+      const nhp = Number(data.NHP);
+      if (nhp > 90) counts["> 90 Sangat Memuaskan (AA)"]++;
+      else if (nhp >= 80) counts["80.1-90 Memuaskan (A)"]++;
+      else if (nhp >= 70) counts["70.1-80 Sangat Baik (BB)"]++;
+      else if (nhp >= 60) counts["60.1-70 Baik (B)"]++;
+      else if (nhp >= 50) counts["50.1-60 Cukup (CC)"]++;
+      else if (nhp >= 30) counts["30-50 Kurang (C)"]++;
+      else counts["< 30 Sangat Kurang (D)"]++;
+    }
+  });
+
+  // Render stats in the box
+  const statsDiv = document.getElementById("statsContent");
+  statsDiv.innerHTML = `
+    > 90 Sangat Memuaskan (AA): ${counts["> 90 Sangat Memuaskan (AA)"]}<br>
+    80.1-90 Memuaskan (A): ${counts["80.1-90 Memuaskan (A)"]}<br>
+    70.1-80 Sangat Baik (BB): ${counts["70.1-80 Sangat Baik (BB)"]}<br>
+    60.1-70 Baik (B): ${counts["60.1-70 Baik (B)"]}<br>
+    50.1-60 Cukup (CC): ${counts["50.1-60 Cukup (CC)"]}<br>
+    30.1-50 Kurang (C): ${counts["30.1-50 Kurang (C)"]}<br>
+    < 30 Sangat Kurang (D): ${counts["< 30 Sangat Kurang (D)"]}<br>
+    Tidak Dilaksanakan Pengawasan: ${counts["Tidak Dilaksanakan Pengawasan"]}<br>
+    Tidak Diberikan Opini: ${counts["Tidak Diberikan Opini"]}
+  `;
+}
+///////////////////////////////////////////////////
+const yearSelect = document.getElementById('yearFilter');
+yearSelect.addEventListener('change', function() {
+  selectedYear = this.value;
+  renderMap(document.getElementById('provinceFilter').value);  // re-render current province
+  updateStats(selectedYear);
+});
+///////////////////////////////////////////////////
+fetch('NHP_test_output.json')
+  .then(res => res.json())
+  .then(data => {
+    ["2020", "2021", "2022", "2023", "2024"].forEach(year => {
+      nhpDataByYear[year] = {};
+      data[year].forEach(row => {
+        const name = row["KABUPATEN/KOTA"].trim().toLowerCase();
+        nhpDataByYear[year][name] = row;
+      });
+    });
+    return fetch('geojson/indonesia-districts-only-simplified_new.geojson');
+  })
+  .then(res => res.json())
+  .then(data => {
+    geoData = data;
+
+    // build province dropdown
+    const provinces = Array.from(new Set(
+      geoData.features.map(f => getProvinceName(f))
+    )).sort();
+
+    const select = document.getElementById('provinceFilter');
+    provinces.forEach(p => {
+      const option = document.createElement('option');
+      option.value = p;
+      option.textContent = p;
+      select.appendChild(option);
+    });
+
+    select.addEventListener('change', function () {
+      renderMap(this.value);
+    });
+
+    // setup search
+    const searchBox = document.getElementById('districtSearch');
+    const resultList = document.getElementById('searchResults');
+
+    searchBox.addEventListener('input', function () {
+      const term = this.value.trim().toLowerCase();
+      resultList.innerHTML = '';
+
+      if (!term) {
+        resultList.style.display = 'none';
+        return;
+      }
+
+      const uniqueMatches = {};
+      geoData.features.forEach(f => {
+        const regency = f.properties.regency || "";
+        const province = f.properties.province || "";
+        const code = f.properties.regency_code || "";
+
+        if (
+          regency.toLowerCase().includes(term) ||
+          province.toLowerCase().includes(term)
+        ) {
+          if (!uniqueMatches[code]) {
+            uniqueMatches[code] = f;
+          }
+        }
+      });
+
+      const matches = Object.values(uniqueMatches);
+      if (matches.length === 0) {
+        resultList.style.display = 'none';
+        return;
+      }
+
+      matches.forEach(f => {
+        const regency = f.properties.regency || "-";
+        const province = f.properties.province || "-";
+        const code = f.properties.regency_code || "";
+        const li = document.createElement('li');
+        li.textContent = `${regency} (${province})`;
+        li.style.padding = '6px 12px';
+        li.style.cursor = 'pointer';
+        li.onmouseover = () => li.style.background = '#f5f5f5';
+        li.onmouseout = () => li.style.background = 'white';
+        li.onclick = () => {
+          const matchingGroup = geoData.features.filter(
+            d => d.properties.regency_code === code
+          );
+          const layer = L.geoJSON(matchingGroup, {
+            style: {
+              color: '#d9534f',
+              weight: 3,
+              fillColor: '#f0ad4e',
+              fillOpacity: 0.5
+            }
+          }).addTo(map);
+          map.fitBounds(layer.getBounds());
+          resultList.style.display = 'none';
+          searchBox.value = '';
+          setTimeout(() => map.removeLayer(layer), 4000);
+        };
+        resultList.appendChild(li);
+      });
+      resultList.style.display = 'block';
+    });
+
+    // finally render the map
+    renderMap('all');
+    updateStats("2020");
+  })
+  .catch(err => console.error("Error loading data:", err));
+
+</script>
+</body>
+</html>
