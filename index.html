@@ -89,8 +89,8 @@
     }
     .stats {
       position: absolute;
-      bottom: 20px;
-      right: 180px; /* 👈 so it sits next to legend */
+      bottom: 260px;
+      left: 20px; /* 👈 so it sits next to legend */
       background: white;
       padding: 10px;
       border-radius: 6px;
@@ -233,15 +233,15 @@
 
 function updateStats(year) {
   const counts = {
-    "> 90 Sangat Memuaskan (AA)": 0,
-    "80.1-90 Memuaskan (A)": 0,
-    "70.1-80 Sangat Baik (BB)": 0,
-    "60.1-70 Baik (B)": 0,
-    "50.1-60 Cukup (CC)": 0,
-    "30.1-50 Kurang (C)": 0,
-    "< 30 Sangat Kurang (D)": 0,
-    "Tidak Dilaksanakan Pengawasan": 0,
-    "Tidak Diberikan Opini": 0
+    "(AA)": 0,
+    "(A)": 0,
+    "(BB)": 0,
+    "(B)": 0,
+    "(CC)": 0,
+    "(C)": 0,
+    "(D)": 0,
+    "TDP": 0,
+    "TDO": 0
   };
 
   const visited = new Set();
@@ -257,33 +257,33 @@ function updateStats(year) {
     if (!data) return;
 
     if (data.KATEGORI === "TIDAK DILAKSANAKAN PENGAWASAN") {
-      counts["Tidak Dilaksanakan Pengawasan"]++;
+      counts["TDP"]++;
     } else if (data.KATEGORI === "TIDAK DIBERIKAN OPINI") {
-      counts["Tidak Diberikan Opini"]++;
+      counts["TDO"]++;
     } else if (data?.NHP !== undefined && !isNaN(data.NHP)) {
       const nhp = Number(data.NHP);
-      if (nhp > 90) counts["> 90 Sangat Memuaskan (AA)"]++;
-      else if (nhp >= 80) counts["80.1-90 Memuaskan (A)"]++;
-      else if (nhp >= 70) counts["70.1-80 Sangat Baik (BB)"]++;
-      else if (nhp >= 60) counts["60.1-70 Baik (B)"]++;
-      else if (nhp >= 50) counts["50.1-60 Cukup (CC)"]++;
-      else if (nhp >= 30) counts["30-50 Kurang (C)"]++;
-      else counts["< 30 Sangat Kurang (D)"]++;
+      if (nhp > 90) counts["(AA)"]++;
+      else if (nhp >= 80) counts["(A)"]++;
+      else if (nhp >= 70) counts["(BB)"]++;
+      else if (nhp >= 60) counts["(B)"]++;
+      else if (nhp >= 50) counts["(CC)"]++;
+      else if (nhp >= 30) counts["(C)"]++;
+      else counts["(D)"]++;
     }
   });
 
   // Render stats in the box
   const statsDiv = document.getElementById("statsContent");
   statsDiv.innerHTML = `
-    > 90 Sangat Memuaskan (AA): ${counts["> 90 Sangat Memuaskan (AA)"]}<br>
-    80.1-90 Memuaskan (A): ${counts["80.1-90 Memuaskan (A)"]}<br>
-    70.1-80 Sangat Baik (BB): ${counts["70.1-80 Sangat Baik (BB)"]}<br>
-    60.1-70 Baik (B): ${counts["60.1-70 Baik (B)"]}<br>
-    50.1-60 Cukup (CC): ${counts["50.1-60 Cukup (CC)"]}<br>
-    30.1-50 Kurang (C): ${counts["30.1-50 Kurang (C)"]}<br>
-    < 30 Sangat Kurang (D): ${counts["< 30 Sangat Kurang (D)"]}<br>
-    Tidak Dilaksanakan Pengawasan: ${counts["Tidak Dilaksanakan Pengawasan"]}<br>
-    Tidak Diberikan Opini: ${counts["Tidak Diberikan Opini"]}
+    (AA): ${counts["(AA)"]}<br>
+    (A): ${counts["(A)"]}<br>
+    (BB): ${counts["(BB)"]}<br>
+    (B): ${counts["(B)"]}<br>
+    (CC): ${counts["(CC)"]}<br>
+    (C): ${counts["(C)"]}<br>
+    (D): ${counts["(D)"]}<br>
+    TDP: ${counts["TDP"]}<br>
+    TDO: ${counts["TDO"]}
   `;
 }
 ///////////////////////////////////////////////////
