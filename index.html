@@ -99,6 +99,17 @@
       line-height: 1.5;
       z-index: 1000;
     }
+    .stats div span {
+      display: inline-block;
+      width: 36px;
+      height: 18px;
+      margin-right: 6px;
+      border-radius: 3px;
+      vertical-align: middle;
+}
+    .stats div {
+    line-height: 18px; 
+}
   </style> 
 </head>
 <body>
@@ -275,15 +286,15 @@ function updateStats(year) {
   // Render stats in the box
   const statsDiv = document.getElementById("statsContent");
   statsDiv.innerHTML = `
-    (AA): ${counts["(AA)"]}<br>
-    (A): ${counts["(A)"]}<br>
-    (BB): ${counts["(BB)"]}<br>
-    (B): ${counts["(B)"]}<br>
-    (CC): ${counts["(CC)"]}<br>
-    (C): ${counts["(C)"]}<br>
-    (D): ${counts["(D)"]}<br>
-    TDP: ${counts["TDP"]}<br>
-    TDO: ${counts["TDO"]}
+  <div><span style="background:#1D9054"></span> (AA): ${counts["(AA)"]}</div>
+  <div><span style="background:#36D8B0"></span> (A): ${counts["(A)"]}</div>
+  <div><span style="background:#26E683"></span> (BB): ${counts["(BB)"]}</div>
+  <div><span style="background:#B7FAD7"></span> (B): ${counts["(B)"]}</div>
+  <div><span style="background:#F5FF8B"></span> (CC): ${counts["(CC)"]}</div>
+  <div><span style="background:#FFB089"></span> (C): ${counts["(C)"]}</div>
+  <div><span style="background:#FF4E33"></span> (D): ${counts["(D)"]}</div>
+  <div><span style="background:#899499"></span> TDP: ${counts["TDP"]}</div>
+  <div><span style="background:#E5E4E2"></span> TDO: ${counts["TDO"]}</div>
   `;
 }
 ///////////////////////////////////////////////////
