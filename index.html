@@ -350,7 +350,23 @@ fetch('NHP_test_output.json')
     });
 
     select.addEventListener('change', function () {
-      renderMap(this.value);
+      const selectedProvince = this.value;
+      renderMap(selectedProvince);
+
+      // Zoom to selected province (if not "all")
+    if (selectedProvince !== "all") {
+      const matchingFeatures = geoData.features.filter(
+      f => getProvinceName(f) === selectedProvince
+    );
+
+    if (matchingFeatures.length > 0) {
+      const layer = L.geoJSON(matchingFeatures);
+      map.fitBounds(layer.getBounds());
+    }
+  } else {
+    // Reset zoom for "all" provinces
+    map.setView([-2.5, 117], 5);
+  }
     });
 
     // setup search
